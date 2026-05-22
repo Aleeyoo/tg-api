@@ -21,6 +21,10 @@ curl http://localhost:8787/api/v1/ch/my_channel/info
 curl http://localhost:8787/api/v1/ch/my_channel/posts
 ```
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Aleeyoo/tg-api)
+
+一键部署到 Cloudflare Pages。点击按钮，授权后自动部署。
+
 ## API 端点
 
 所有端点返回 JSON，路径前缀 `/api/v1/`。
@@ -395,36 +399,45 @@ pnpm deploy
 
 ## 部署
 
-### 连接 GitHub 自动部署
+### 一键部署（Cloudflare Pages）
 
-Cloudflare Workers 支持原生 Git 集成，无需配置 CI/CD。
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/aleeyoo/tg-api)
 
-1. 在 GitHub 创建仓库，推送代码
-2. 打开 [Cloudflare Dashboard](https://dash.cloudflare.com/) → Workers & Pages
+点击上方按钮，授权 Cloudflare 访问你的 GitHub 仓库即可自动部署。
+
+### 手动连接
+
+1. 推送代码到 GitHub
+2. 打开 [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages**
 3. 点击 **Create** → **Pages** → **Connect to Git**
-4. 选择你的 tg-api 仓库，框架选 **None**，构建命令留空
-5. 设置环境变量：
+4. 选择 tg-api 仓库，框架选 **None**，构建命令留空
+5. 部署完成后，在项目 **Settings → Functions → KV namespace bindings** 中添加：
+
+| Binding | 说明 |
+|---------|------|
+| `CACHE` | 创建或选择一个 KV namespace 用于缓存（可选） |
+
+6. 在 **Settings → Environment variables** 中添加：
 
 | 变量 | 说明 |
 |------|------|
 | `CHANNELS` | 频道白名单（可选） |
 | `STRICT_MODE` | `true` 开启严格模式（可选） |
-| `CACHE_TTL` | KV 缓存秒数（可选） |
+| `CACHE_TTL` | KV 缓存秒数（可选，默认 300） |
 
-6. 在 Pages 项目的 **Settings → Functions → KV namespace bindings** 中添加 `CACHE` 绑定
+推送代码即自动部署。
 
-推送代码到 GitHub 自动部署。
-
-### 本地部署
+### 本地开发
 
 ```bash
-# 首次部署需要创建 KV namespace
-npx wrangler kv namespace create CACHE
-# → 将返回的 id 填入 wrangler.toml
+# 安装依赖
+pnpm install
 
-# 部署
-pnpm deploy
+# 启动
+pnpm dev
 ```
+
+> KV 非必需。不绑定 KV namespace 时，所有频道自动使用内存 LRU 缓存，冷启动时会重新抓取 Telegram。
 
 ## 项目结构
 
