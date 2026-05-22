@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tg-api · 诊断面板</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#faf8f5;color:#1a1a1a;padding:24px 16px;font-size:14px;line-height:1.6}
+.container{max-width:800px;margin:0 auto}
+
+h1{font-family:Georgia,'Times New Roman',serif;font-size:22px;font-weight:400;letter-spacing:-.01em;margin-bottom:2px}
+.subtitle{color:#99948f;font-size:12px;margin-bottom:20px}
+
+.config{border-bottom:2px solid #d4d0cb;padding-bottom:16px;margin-bottom:24px}
+.config-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.config-row .field{flex:1;min-width:180px}
+.config label{display:block;font-size:11px;color:#99948f;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+.config input{width:100%;padding:6px 10px;border:1px solid #d4d0cb;border-radius:0;font-size:13px;background:#fff;color:#1a1a1a;outline:none;font-family:inherit}
+.config input:focus{border-color:#1a1a1a}
+.btn-row{display:flex;gap:8px}
+.btn{background:none;border:1px solid #d4d0cb;border-radius:0;padding:6px 18px;font-size:12px;cursor:pointer;color:#1a1a1a;font-family:inherit;letter-spacing:.02em}
+.btn:hover{border-color:#1a1a1a}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{border-color:#1a1a1a;background:#1a1a1a;color:#faf8f5}
+.btn-primary:hover{opacity:.85}
+
+/* Stats bar */
+.stats{border-bottom:2px solid #d4d0cb;padding-bottom:16px;margin-bottom:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(70px,1fr));gap:8px}
+.stat-item{text-align:center}
+.stat-num{font-size:20px;font-weight:600;line-height:1.2}
+.stat-label{font-size:10px;color:#99948f;text-transform:uppercase;letter-spacing:.04em}
+
+/* Section */
+.section{border-bottom:2px solid #1a1a1a;padding-bottom:16px;margin-bottom:24px}
+.section:last-child{border-bottom:none}
+.section-head{font-family:Georgia,'Times New Roman',serif;font-size:13px;font-weight:400;color:#99948f;margin-bottom:12px;letter-spacing:.02em}
+
+/* Channel card */
+.channel-row{display:flex;align-items:center;gap:14px;padding:4px 0}
+.channel-avatar{width:44px;height:44px;border-radius:0;object-fit:cover;border:1px solid #d4d0cb}
+.channel-meta{flex:1;min-width:0}
+.channel-name{font-size:16px;font-weight:600}
+.channel-desc{font-size:12px;color:#66635e}
+.channel-tech{font-size:11px;color:#99948f;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* Post timeline */
+.post-entry{padding:8px 0}
+.post-entry+.post-entry{border-top:1px dashed #e0dbd6}
+.post-head{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:#66635e;margin-bottom:4px}
+.post-head .post-date{font-variant-numeric:tabular-nums}
+.post-head .post-id{font-family:monospace;font-size:11px;color:#99948f}
+.post-head .post-tech{font-size:11px;color:#99948f;text-align:right}
+.post-tech .cache-tag{display:inline-block;margin-left:6px;padding:0 4px;font-size:10px;border:1px solid #d4d0cb;line-height:1.6}
+.post-body{font-size:13px;line-height:1.7;padding-left:0}
+
+/* Block renderers */
+.block{margin:3px 0;padding:2px 0}
+.block-text p{margin:3px 0}
+.block-text img.tg-emoji{width:1.1em;height:1.1em;vertical-align:-.12em}
+.block-text pre{background:#f0eeeb;padding:6px 8px;font-size:12px;overflow-x:auto;margin:4px 0}
+.block-text blockquote{margin:4px 0;padding:3px 8px;border-left:2px solid #d4d0cb;color:#66635e;font-size:.9em}
+.block-text .tg-expandable{margin:4px 0;padding:3px 8px;border-left:2px solid #d4d0cb;font-size:.9em;position:relative;min-height:2.4em}
+.block-text .tg-expandable__checkbox{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.block-text .tg-expandable__content{display:-webkit-box;line-clamp:3;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.block-text .tg-expandable:has(.tg-expandable__checkbox:checked) .tg-expandable__content{display:block;line-clamp:unset}
+.block-text .tg-expandable__toggle{cursor:pointer;font-size:10px;color:#99948f}
+.block-text tg-spoiler{background:#d4d0cb;border-radius:2px}
+.block-text .spoiler-button input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.block-text .spoiler-button input:checked+tg-spoiler{background:transparent}
+.block-reply{color:#66635e;font-size:12px;border-left:2px solid #d4d0cb;padding:3px 8px;margin:3px 0}
+.block-reply::before{content:'↩ '}
+.block-image img{max-width:100%;max-height:160px;border:1px solid #d4d0cb;margin:3px 0;object-fit:cover}
+.block-video video{max-width:100%;max-height:160px;margin:3px 0}
+.block-audio audio{width:100%;margin:3px 0}
+.block-sticker img{width:100px;height:100px;object-fit:contain;margin:3px 0}
+.block-link-preview{border-left:2px solid #1a1a1a;padding:6px 10px;margin:3px 0;font-size:12px}
+.block-link-preview .lp-title{font-weight:600}
+.block-link-preview .lp-desc,.block-link-preview .lp-site{color:#66635e;font-size:11px}
+.block-link-preview .lp-image img{max-width:100%;max-height:60px;border:1px solid #d4d0cb;margin-top:4px;object-fit:cover}
+.block-poll .poll-q{font-weight:600;font-size:12px;margin-bottom:4px}
+.block-poll .poll-opt{display:flex;align-items:center;gap:4px;margin:2px 0;font-size:12px}
+.block-poll .poll-bar{height:16px;background:#d4d0cb;min-width:2px}
+.block-document{font-size:12px;margin:3px 0;border-left:2px solid #d4d0cb;padding:3px 8px}
+.block-document a{color:#1a1a1a;text-decoration:underline}
+.block-location{font-size:12px;color:#66635e;margin:3px 0}
+.block-location img{max-width:100%;max-height:80px;border:1px solid #d4d0cb;margin-top:3px}
+
+/* Empty placeholder */
+.block-empty{color:#ccc8c3;font-size:12px;border-left:2px dashed #e0dbd6;padding:3px 8px;margin:3px 0;font-style:italic}
+
+.tags{display:flex;flex-wrap:wrap;gap:3px;margin:4px 0}
+.tag-pill{display:inline-block;border:1px solid #d4d0cb;padding:1px 6px;font-size:11px;color:#66635e}
+.reactions{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}
+.reaction-pill{display:inline-flex;align-items:center;gap:2px;padding:1px 6px;font-size:12px;border:1px solid #d4d0cb}
+.reaction-pill.paid{border-color:#1a1a1a}
+
+/* Gallery */
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px}
+.gallery-grid img{width:100%;height:90px;object-fit:cover;border:1px solid #d4d0cb;cursor:pointer}
+
+/* Heatmap */
+.heatmap-wrap{overflow-x:auto;padding:4px 0}
+.heatmap-months{display:flex;font-size:9px;color:#99948f;padding-left:28px;margin-bottom:2px}
+.heatmap-months span{flex:1;text-align:left}
+.heatmap-grid{display:flex;gap:2px}
+.heatmap-col{display:flex;flex-direction:column;gap:2px}
+.heatmap-cell{width:11px;height:11px;border:1px solid #ebe8e4}
+.heatmap-cell.l1{background:#c6e6c6;border-color:#c6e6c6}
+.heatmap-cell.l2{background:#7bc87b;border-color:#7bc87b}
+.heatmap-cell.l3{background:#3da33d;border-color:#3da33d}
+.heatmap-cell.l4{background:#1a7a1a;border-color:#1a7a1a}
+.heatmap-cell.empty{border-color:transparent}
+.heatmap-label{font-size:9px;color:#99948f;display:flex;flex-direction:column;gap:2px;margin-right:4px}
+.heatmap-label span{height:11px;line-height:11px}
+.heatmap-legend{display:flex;align-items:center;gap:3px;margin-top:6px;font-size:10px;color:#99948f;justify-content:flex-end}
+.heatmap-legend .hcell{width:11px;height:11px}
+
+/* Type distribution */
+.type-bar{display:flex;align-items:center;gap:6px;margin:2px 0;font-size:12px}
+.type-bar .type-name{width:100px;text-align:right;color:#66635e}
+.type-bar .type-fill{flex:1;height:14px;background:#ebebe8}
+.type-bar .type-fill-inner{height:100%;background:#d4d0cb}
+.type-bar .type-count{width:24px;text-align:right;color:#99948f;font-variant-numeric:tabular-nums}
+.type-bar.zero .type-fill-inner{background:transparent;border:1px dashed #e0dbd6}
+.type-bar.zero .type-name{color:#ccc8c3}
+
+/* Tags cloud */
+.tag-cloud{display:flex;flex-wrap:wrap;gap:4px}
+.tag-cloud .tag-pill{padding:2px 8px;font-size:12px}
+.tag-cloud .tag-count{color:#99948f;font-size:11px;margin-left:3px}
+
+/* Log */
+.log-wrap{font-size:11px;color:#99948f;line-height:1.8}
+.log-wrap summary{cursor:pointer;font-size:12px;color:#66635e;user-select:none}
+.log-wrap .log-line{color:#66635e}
+.log-wrap .log-line .ok{color:#1a8a1a}
+.log-wrap .log-line .err{color:#b91c1c}
+
+/* Error */
+.error-msg{color:#b91c1c;font-size:13px;padding:8px 0;border-bottom:1px dashed #e0dbd6;margin-bottom:12px}
+
+@media(max-width:500px){
+  .stats{grid-template-columns:repeat(3,1fr)}
+  .config-row .field{min-width:100%}
+  .channel-row{flex-wrap:wrap}
+  .channel-tech{text-align:left;width:100%}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>tg-api · 诊断面板</h1>
+<p class="subtitle">填入 API 地址和频道名，验证所有端点</p>
+
+<div class="config">
+  <div class="config-row">
+    <div class="field">
+      <label>API 地址</label>
+      <input id="apiUrl" type="url" value="" placeholder="https://your-domain.workers.dev">
+    </div>
+    <div class="field">
+      <label>频道名</label>
+      <input id="channel" type="text" value="" placeholder="your_channel">
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-primary" id="btnTest">运行测试</button>
+    <button class="btn" id="btnClear">清除</button>
+  </div>
+</div>
+
+<div id="stats" class="stats" style="display:none"></div>
+<div id="results"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id)
+const results = $('results')
+const btnTest = $('btnTest')
+const btnClear = $('btnClear')
+const statsEl = $('stats')
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML }
+
+// ── Block renderers ──
+function renderBlocks(blocks) { return blocks.map(b => renderBlock(b)).filter(Boolean).join('') }
+
+function renderBlock(b) {
+  switch(b.type) {
+    case 'text': return `<div class="block block-text">${b.html}</div>`
+    case 'image': return `<div class="block block-image"><img src="${esc(b.src)}" alt="" loading="lazy" width="${b.width}" height="${b.height}"></div>`
+    case 'video': return `<div class="block block-video"><video src="${esc(b.src)}" controls preload="metadata" playsinline${b.poster ? ` poster="${esc(b.poster)}"` : ''}></video></div>`
+    case 'audio': return `<div class="block block-audio"><audio src="${esc(b.src)}" controls preload="metadata"></audio></div>`
+    case 'sticker': return `<div class="block block-sticker"><img src="${esc(b.src)}" alt="" loading="lazy"></div>`
+    case 'video_sticker': return `<div class="block block-video"><video src="${esc(b.src)}" autoplay loop muted playsinline${b.poster ? ` poster="${esc(b.poster)}"` : ''}></video></div>`
+    case 'link_preview': return renderLinkPreview(b)
+    case 'reply': return `<div class="block block-reply"><strong>#${esc(b.postId)}</strong> ${esc(b.text)}</div>`
+    case 'poll': return renderPoll(b)
+    case 'document': return `<div class="block block-document"><a href="${esc(b.src)}" target="_blank" rel="noopener">${esc(b.name)}</a>${b.size ? ` (${formatSize(b.size)})` : ''}</div>`
+    case 'location': return `<div class="block block-location">${b.latitude}, ${b.longitude}${b.image ? `<br><img src="${esc(b.image)}" alt="" loading="lazy">` : ''}</div>`
+    default: return ''
+  }
+  function renderLinkPreview(b) {
+    let h = `<div class="block-link-preview">`
+    if(b.image) h += `<div class="lp-image"><img src="${esc(b.image)}" alt="" loading="lazy"></div>`
+    if(b.title) h += `<div class="lp-title">${esc(b.title)}</div>`
+    if(b.description) h += `<div class="lp-desc">${esc(b.description)}</div>`
+    if(b.siteName) h += `<div class="lp-site">${esc(b.siteName)}</div>`
+    h += `<div style="font-size:11px;color:#99948f;margin-top:2px">${esc(b.url)}</div></div>`
+    return h
+  }
+  function renderPoll(b) {
+    let h = `<div class="block-poll"><div class="poll-q">${esc(b.question)}</div>`
+    const max = Math.max(...b.options.map(o => parseFloat(o.percent)||0), 1)
+    for(const o of b.options) {
+      const p = parseFloat(o.percent)||0
+      h += `<div class="poll-opt"><span class="poll-bar" style="width:${Math.round(p/max*100)}%"></span><span>${esc(o.label)}</span><span style="color:#99948f;margin-left:auto">${esc(o.percent)}</span></div>`
+    }
+    if(b.totalVotes) h += `<div style="font-size:11px;color:#99948f;margin-top:3px">${esc(b.totalVotes)}</div>`
+    return h + `</div>`
+  }
+}
+
+function formatSize(n) {
+  if(!n) return ''; if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(1)+' KB'
+  return (n/1048576).toFixed(1)+' MB'
+}
+
+function renderTags(tags) {
+  if(!tags||!tags.length) return ''
+  return `<div class="tags">${tags.map(t=>`<span class="tag-pill">${esc(t)}</span>`).join('')}</div>`
+}
+
+function renderReactions(rs) {
+  if(!rs||!rs.length) return ''
+  return `<div class="reactions">${rs.map(r=>`<span class="reaction-pill${r.isPaid?' paid':''}">${r.emojiImage?`<img src="${esc(r.emojiImage)}" alt="" width="14" height="14" style="vertical-align:middle">`:esc(r.emoji||'⭐')} ${esc(r.count)}</span>`).join('')}</div>`
+}
+
+function formatTime(iso) {
+  if(!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleString('zh-CN',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+}
+
+// ── Main ──
+async function runAll() {
+  const apiUrl = $('apiUrl').value.replace(/\/+$/,'')
+  const ch = $('channel').value.trim()
+  if(!apiUrl||!ch){alert('请填写 API 地址和频道名');return}
+
+  btnTest.disabled = true; btnTest.textContent = '运行中…'
+  results.innerHTML = '<div style="color:#99948f;font-size:13px">测试中…</div>'
+  statsEl.style.display = 'none'
+
+  let posts = [], tagsData = null, channelInfo = null
+  let endpointsOk = 0, endpointsTotal = 0
+  let hasError = false, errorMsg = ''
+  const logs = []
+  function addLog(test, status, ms, cacheStr) {
+    logs.push({test, status, ms, cache:cacheStr})
+  }
+
+  const tests = [
+    {name:'健康检查', url:`${apiUrl}/api/v1/health`, check:d=>d.status==='ok'},
+    {name:'频道信息', url:`${apiUrl}/api/v1/ch/${ch}/info`, check:d=>d.title, save:d=>channelInfo=d},
+    {name:'帖子列表', url:`${apiUrl}/api/v1/ch/${ch}/posts`, check:d=>Array.isArray(d.posts), save:d=>posts=d.posts||[]},
+    {name:'标签聚合', url:`${apiUrl}/api/v1/ch/${ch}/tags`, check:d=>Array.isArray(d.tags), save:d=>tagsData=d},
+    {name:'图片展平', url:`${apiUrl}/api/v1/ch/${ch}/media/images`, check:d=>Array.isArray(d.items)},
+  ]
+
+  for(const test of tests) {
+    endpointsTotal++
+    const t0 = performance.now()
+    try {
+      const res = await fetch(test.url)
+      const ms = Math.round(performance.now()-t0)
+      const data = await res.json()
+      const cacheStrategy = res.headers.get('X-Tg-Cache') || ''
+      if(res.ok&&test.check(data)) {
+        endpointsOk++
+        if(test.save) test.save(data)
+        addLog(test.name, `${res.status}`, ms, cacheStrategy)
+      } else {
+        hasError = true; errorMsg += `${test.name}: ${res.status} ${data.error?.message||''}\n`
+        addLog(test.name, `${res.status}`, ms, cacheStrategy)
+      }
+    } catch(e) {
+      hasError = true; errorMsg += `${test.name}: ${e.message}\n`
+      addLog(test.name, 'ERR', Math.round(performance.now()-t0), '')
+    }
+  }
+
+  if(hasError) results.innerHTML = `<div class="error-msg">部分端点异常\n${esc(errorMsg)}</div>`
+  else results.innerHTML = ''
+
+  // Stats
+  const typeCounts = {}
+  let imgCount = 0, videoCount = 0, audioCount = 0, stickerCount = 0, vstickCount = 0
+  for(const p of posts) {
+    for(const b of p.blocks) {
+      typeCounts[b.type] = (typeCounts[b.type]||0)+1
+      if(b.type==='image') imgCount++
+      else if(b.type==='video') videoCount++
+      else if(b.type==='audio') audioCount++
+      else if(b.type==='sticker') stickerCount++
+      else if(b.type==='video_sticker') vstickCount++
+    }
+  }
+  statsEl.style.display = 'grid'
+  statsEl.innerHTML = `
+    <div class="stat-item"><div class="stat-num">${endpointsOk}/${endpointsTotal}</div><div class="stat-label">端点</div></div>
+    <div class="stat-item"><div class="stat-num">${posts.length}</div><div class="stat-label">帖子</div></div>
+    <div class="stat-item"><div class="stat-num">${imgCount}</div><div class="stat-label">图片</div></div>
+    <div class="stat-item"><div class="stat-num">${tagsData?.tags?.length||0}</div><div class="stat-label">标签</div></div>
+  `
+
+  // Build sections
+  let html = ''
+
+  // ── Channel ──
+  if(channelInfo) {
+    const cacheLog = logs.find(l=>l.test==='频道信息')
+    html += `<div class="section">
+      <div class="section-head">频道信息</div>
+      <div class="channel-row">
+        ${channelInfo.avatar?`<img class="channel-avatar" src="${esc(channelInfo.avatar)}" alt="" onerror="this.style.display='none'">`:'<div style="width:44px;height:44px;border:1px solid #d4d0cb"></div>'}
+        <div class="channel-meta">
+          <div class="channel-name">${esc(channelInfo.title)}</div>
+          ${channelInfo.description?`<div class="channel-desc">${esc(channelInfo.description)}</div>`:''}
+        </div>
+        <div class="channel-tech">${cacheLog?`${cacheLog.status} · ${cacheLog.ms}ms${cacheLog.cache?'<span class="cache-tag" style="margin-left:6px">'+cacheLog.cache+'</span>':''}`:''}</div>
+      </div>
+    </div>`
+  }
+
+  // ── Type distribution ──
+  const allTypes = ['text','image','video','audio','sticker','video_sticker','link_preview','reply','poll','document','location']
+  const typeLabels = {text:'文本',image:'图片',video:'视频',audio:'语音',sticker:'贴纸',video_sticker:'动贴',link_preview:'链接',reply:'回复',poll:'投票',document:'文件',location:'位置'}
+  const maxCount = Math.max(...allTypes.map(t=>typeCounts[t]||0),1)
+  const typeHtml = allTypes.map(t => {
+    const c = typeCounts[t]||0
+    const pct = Math.round(c/maxCount*100)
+    return `<div class="type-bar${c===0?' zero':''}">
+      <span class="type-name">${typeLabels[t]||t}</span>
+      <span class="type-fill"><span class="type-fill-inner" style="width:${pct}%"></span></span>
+      <span class="type-count">${c}</span>
+    </div>`
+  }).join('')
+
+  html += `<div class="section">
+    <div class="section-head">内容类型</div>
+    ${typeHtml}
+  </div>`
+
+  // ── Posts ──
+  if(posts.length) {
+    const entries = posts.map((p,i) => {
+      const cacheLog = logs.find(l=>l.test==='帖子列表')
+      return `<div class="post-entry">
+        <div class="post-head">
+          <span class="post-date">${formatTime(p.datetime)}</span>
+          <span class="post-id">#${esc(p.id)}</span>
+          <span class="post-tech">${cacheLog?`${cacheLog.status} · ${cacheLog.ms}ms<span class="cache-tag">${cacheLog.cache||'?'}</span>`:''}</span>
+        </div>
+        <div class="post-body">
+          ${renderBlocks(p.blocks)}
+          ${renderTags(p.tags)}
+          ${renderReactions(p.reactions)}
+        </div>
+      </div>`
+    }).join('')
+    html += `<div class="section">
+      <div class="section-head">帖子流 · ${posts.length} 条</div>
+      ${entries}
+    </div>`
+  }
+
+  // ── Media library ──
+  const mediaSections = []
+  if(imgCount) {
+    const imgs = []; for(const p of posts) for(const b of p.blocks) if(b.type==='image') imgs.push(b.src)
+    mediaSections.push(`<div class="section-head" style="margin-top:12px">图片 · ${imgCount}</div><div class="gallery-grid">${imgs.map(s=>`<img src="${esc(s)}" alt="" loading="lazy">`).join('')}</div>`)
+  }
+  if(videoCount) {
+    const items = []; for(const p of posts) for(const b of p.blocks) if(b.type==='video') items.push(b)
+    mediaSections.push(`<div class="section-head" style="margin-top:12px">视频 · ${videoCount}</div>${items.map(b=>`<div class="block block-video"><video src="${esc(b.src)}" controls preload="metadata" playsinline${b.poster?` poster="${esc(b.poster)}"`:''}></video></div>`).join('')}`)
+  }
+  if(audioCount) {
+    const items = []; for(const p of posts) for(const b of p.blocks) if(b.type==='audio') items.push(b)
+    mediaSections.push(`<div class="section-head" style="margin-top:12px">语音 · ${audioCount}</div>${items.map(b=>`<audio src="${esc(b.src)}" controls preload="metadata" style="width:100%"></audio>`).join('')}`)
+  }
+  if(stickerCount) {
+    const items = []; for(const p of posts) for(const b of p.blocks) if(b.type==='sticker') items.push(b)
+    mediaSections.push(`<div class="section-head" style="margin-top:12px">贴纸 · ${stickerCount}</div><div style="display:flex;gap:8px;flex-wrap:wrap">${items.map(b=>`<img src="${esc(b.src)}" alt="" style="width:100px;height:100px;object-fit:contain;border:1px solid #d4d0cb" loading="lazy">`).join('')}</div>`)
+  }
+  if(vstickCount) {
+    const items = []; for(const p of posts) for(const b of p.blocks) if(b.type==='video_sticker') items.push(b)
+    mediaSections.push(`<div class="section-head" style="margin-top:12px">动态贴纸 · ${vstickCount}</div>${items.map(b=>`<video src="${esc(b.src)}" autoplay loop muted playsinline style="width:100px;height:100px;border:1px solid #d4d0cb" ${b.poster?`poster="${esc(b.poster)}"`:''}></video>`).join('')}`)
+  }
+  if(mediaSections.length) {
+    html += `<div class="section"><div class="section-head">媒体库</div>${mediaSections.join('<div style="border-top:1px dashed #e0dbd6;margin:8px 0"></div>')}</div>`
+  }
+
+  // ── Heatmap ──
+  if(posts.length) {
+    const daily = {}
+    for(const p of posts) {
+      const d = p.datetime ? p.datetime.slice(0,10) : null
+      if(d) daily[d] = (daily[d]||0)+1
+    }
+    const activeDays = Object.keys(daily).length
+    const today = new Date()
+    const data = []
+    for(let i=364; i>=0; i--) {
+      const d = new Date(today); d.setDate(d.getDate()-i)
+      const ds = d.toISOString().slice(0,10)
+      data.push({date:ds, count:daily[ds]||0})
+    }
+    const firstDay = new Date(data[0].date).getDay()
+    const weeks = []
+    let week = new Array(firstDay).fill(null)
+    for(const d of data) { week.push(d); if(week.length===7){weeks.push(week);week=[]} }
+    if(week.length){while(week.length<7)week.push(null);weeks.push(week)}
+
+    const lvl = c => {if(!c||c===0) return ''; if(c<=3) return 'l1'; if(c<=7) return 'l2'; if(c<=15) return 'l3'; return 'l4'}
+    const dayLbl = ['','一','','三','','五','']
+    const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
+    const weekMonths = weeks.map(w => {const f=w.find(d=>d); return f?new Date(f.date).getMonth():-1})
+    const seen = new Set()
+    const monthLabels = weekMonths.map((m,wi) => {
+      if(m>=0&&!seen.has(m)){seen.add(m);return `<span style="flex:${weeks[wi].length};text-align:left">${monthNames[m]}</span>`}
+      return ''
+    }).join('')
+
+    const cols = weeks.map(w=>`<div class="heatmap-col">${w.map(d=>`<div class="heatmap-cell${d?` ${lvl(d.count)}`:' empty'}"${d?` title="${d.date}: ${d.count}"`:''}></div>`).join('')}</div>`).join('')
+
+    html += `<div class="section">
+      <div class="section-head">热力图 · 近一年 · ${activeDays} 天活跃</div>
+      <div class="heatmap-wrap">
+        <div class="heatmap-months">${monthLabels}</div>
+        <div style="display:flex">
+          <div class="heatmap-label">${dayLbl.map(l=>`<span>${l}</span>`).join('')}</div>
+          <div class="heatmap-grid">${cols}</div>
+        </div>
+        <div class="heatmap-legend"><span>少</span><span class="heatmap-cell"></span><span class="heatmap-cell l1"></span><span class="heatmap-cell l2"></span><span class="heatmap-cell l3"></span><span class="heatmap-cell l4"></span><span>多</span></div>
+      </div>
+    </div>`
+  }
+
+  // ── Tags ──
+  if(tagsData?.tags?.length) {
+    html += `<div class="section">
+      <div class="section-head">标签 · ${tagsData.tags.length} 个</div>
+      <div class="tag-cloud">${tagsData.tags.map(t=>`<span class="tag-pill">${esc(t.name)}<span class="tag-count">×${t.count}</span></span>`).join('')}</div>
+    </div>`
+  }
+
+  // ── Log ──
+  if(logs.length) {
+    html += `<div class="section">
+      <div class="section-head">请求日志</div>
+      <div class="log-wrap">${logs.map(l=>`<div class="log-line">${l.cache?`<span class="ok">${l.status}</span>`:`<span class="err">${l.status}</span>`} · ${l.ms}ms${l.cache?' · '+l.cache:''} · ${l.test}</div>`).join('')}</div>
+    </div>`
+  }
+
+  results.innerHTML = html || '<div style="color:#99948f;font-size:13px">无数据</div>'
+  btnTest.disabled = false; btnTest.textContent = '运行测试'
+}
+
+btnTest.addEventListener('click', runAll)
+btnClear.addEventListener('click', () => {
+  results.innerHTML = ''; statsEl.style.display = 'none'
+})
+</script>
+</body>
+</html>
