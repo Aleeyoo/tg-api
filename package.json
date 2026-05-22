@@ -17,7 +17,7 @@
     "hono": "^4.12.21",
     "lru-cache": "^11.5.0",
     "ofetch": "^1.5.1",
-    "prismjs": "^1.30.0",
+    "prismjs": "1.28.0",
     "prismjs-components-importer": "^0.2.0"
   },
   "devDependencies": {
@@ -25,5 +25,8 @@
     "@types/prismjs": "^1.26.6",
     "typescript": "^5.9.3",
     "wrangler": "^4.93.1"
+  },
+  "overrides": {
+    "prismjs": "1.28.0"
   }
 }
