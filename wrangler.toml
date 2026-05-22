@@ -3,13 +3,11 @@ main = "src/api/index.ts"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
 
-[[kv_namespaces]]
-binding = "CACHE"
-id = "9cc08919bace4e76b237497e543b00b1"
+# KV namespace for caching (optional, configure in Cloudflare Dashboard)
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = ""
 
 [vars]
 TELEGRAM_HOST = "t.me"
 STATIC_PROXY = "/static/"
-# CHANNELS = "your_channel,another_channel"    # 白名单，匹配的走 KV 缓存
-# STRICT_MODE = "true"                     # 开启后只允许白名单频道
-# CACHE_TTL = "300"                        # KV 缓存秒数
