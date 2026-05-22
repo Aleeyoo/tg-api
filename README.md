@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare" width="200">
-</p>
-
 # tg-api
 
 **把你的 Telegram 频道变成结构化 JSON 数据。** 部署一个 API，所有前端都能用。
