@@ -50,7 +50,12 @@
 
 ### `GET /ch/:channel/media/images`
 
-展平所有帖子中的图片，适用于图库前端。
+展平所有帖子中的图片，适用于图库前端。可选参数：
+
+| 参数 | 说明 |
+|------|------|
+| `before` | 游标翻页：此 ID 之前的帖子 |
+| `after` | 游标翻页：此 ID 之后的帖子 |
 
 ```json
 {
@@ -62,7 +67,15 @@
 
 ### `GET /ch/:channel/media/videos`
 
-展平所有帖子中的视频，适用于视频站前端。结构同上。
+展平所有帖子中的视频，适用于视频站前端。可选参数同上（`before` / `after`）。
+
+```json
+{
+  "items": [
+    { "postId": "123", "postTitle": "...", "video": { "type": "video", ... } }
+  ]
+}
+```
 
 ### `GET /ch/:channel/tags`
 
