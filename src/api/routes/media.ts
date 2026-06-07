@@ -23,8 +23,10 @@ router.get('/images', async (c) => {
   c.header('X-Tg-Cache', ctx.cacheStrategy || 'unknown')
 
   const client = new TelegramClient(ctx.config)
-  const cacheKey = JSON.stringify({ scope: 'media-images', channel: ctx.channel })
-  const posts = await withKvCache(ctx.env.CACHE, cacheKey, ctx.ttl, () => client.getPosts({}, c.req.raw))
+  const before = c.req.query('before')
+  const after = c.req.query('after')
+  const cacheKey = JSON.stringify({ scope: 'media-images', channel: ctx.channel, before, after })
+  const posts = await withKvCache(ctx.env.CACHE, cacheKey, ctx.ttl, () => client.getPosts({ before, after }, c.req.raw))
 
   const items: Array<{ postId: string; postTitle: string; image: ImageBlock }> = []
   for (const post of posts) {
@@ -43,8 +45,10 @@ router.get('/videos', async (c) => {
   c.header('X-Tg-Cache', ctx.cacheStrategy || 'unknown')
 
   const client = new TelegramClient(ctx.config)
-  const cacheKey = JSON.stringify({ scope: 'media-videos', channel: ctx.channel })
-  const posts = await withKvCache(ctx.env.CACHE, cacheKey, ctx.ttl, () => client.getPosts({}, c.req.raw))
+  const before = c.req.query('before')
+  const after = c.req.query('after')
+  const cacheKey = JSON.stringify({ scope: 'media-videos', channel: ctx.channel, before, after })
+  const posts = await withKvCache(ctx.env.CACHE, cacheKey, ctx.ttl, () => client.getPosts({ before, after }, c.req.raw))
 
   const items: Array<{ postId: string; postTitle: string; video: VideoBlock }> = []
   for (const post of posts) {

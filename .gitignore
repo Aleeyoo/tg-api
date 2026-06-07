@@ -5,3 +5,8 @@ dist/
 .env
 *.log
 .DS_Store
+.claude/
+.codegraph/
+pnpm-lock.yaml
+openspec/
+todo/
