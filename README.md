@@ -75,21 +75,27 @@ curl http://localhost:8787/api/v1/ch/my_channel/info
 
 点击按钮，授权 Cloudflare 访问你的 GitHub 仓库，自动部署。
 
-### 手动部署到 Cloudflare Pages
+### 手动部署到 Cloudflare Workers
 
-1. 推送代码到 GitHub
-2. [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
-3. 选择 tg-api 仓库，框架选 **None**，构建命令留空
-4. 部署后在 **Settings → KV namespace bindings** 中添加 `CACHE`（可选）
-5. 在 **Environment variables** 中添加：
+```bash
+pnpm deploy
+```
+
+部署后在 Cloudflare Dashboard → **Workers & Pages** → 选择 tg-api → **Settings** → **Variables** 中添加环境变量：
+
+如果使用 KV 缓存，在 **Settings → KV namespace bindings** 中添加 `CACHE`（可选）。
+
+### 环境变量
 
 | 变量 | 说明 |
 |------|------|
-| `CHANNELS` | 白名单（逗号分隔），匹配的频道走 KV 缓存 |
+| `CHANNELS` | 白名单（逗号分隔），匹配的频道走 KV 缓存 + 媒体代理 |
 | `STRICT_MODE` | `true` 时只允许白名单内的频道 |
 | `CACHE_TTL` | KV 缓存秒数（默认 300） |
 | `TELEGRAM_HOST` | 默认 `t.me`，可换镜像 |
-| `STATIC_PROXY` | 静态资源代理前缀 |
+| `STATIC_PROXY` | 静态资源代理前缀，默认 `/static/` |
+| `REFERERS` | 代理防盗链域名白名单（逗号分隔），空值不校验 |
+| `PROXY_VIDEO_MAX_MB` | 视频代理大小上限（默认 100，超过此大小的视频 proxy 回退到 src） |
 
 KV 不是必需的。不配 KV 也能用，只是冷启动时会重新抓取 Telegram。
 
@@ -118,6 +124,23 @@ const { data } = await fetch(`${TG}/my_channel/heatmap`).then(r => r.json())
 // 列出可用频道
 const { channels } = await fetch(`/api/v1/ch`).then(r => r.json())
 ```
+
+### 媒体加载（代理）
+
+白名单频道返回的图片/视频 `proxy` 字段带 `/static/` 前缀，前端直接用作 `<img src>` / `<video src>`：
+
+```javascript
+// 渲染帖子中的图片
+for (const block of post.blocks) {
+  if (block.type === 'image') {
+    const img = document.createElement('img')
+    img.src = block.proxy  // 白名单: /static/https://...  非白名单: https://...
+    document.body.append(img)
+  }
+}
+```
+
+非白名单频道 `proxy = src`（原始 Telegram CDN 链接，国内可能无法加载）。
 
 可视化测试：`examples/test.html`（浏览器直接打开，填入地址即可）。
 

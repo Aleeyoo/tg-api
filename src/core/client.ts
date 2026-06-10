@@ -21,10 +21,62 @@ const CONTENT_URL_REGEX = /(url\(["'])((https?:)?\/\/)/g
 export class TelegramClient {
   private config: TelegramConfig
   private cache: CacheAdapter<Post[] | Post | ChannelInfo>
+  private sizeCache: CacheAdapter<{ size: number }>
 
   constructor(config: TelegramConfig, cache?: CacheAdapter<Post[] | Post | ChannelInfo>) {
     this.config = { ...defaultConfig, ...config }
     this.cache = cache ?? new LRUCacheAdapter()
+    this.sizeCache = new LRUCacheAdapter<{ size: number }>({
+      ttl: 1000 * 60 * 60, // 1 hour
+      maxSize: 1024 * 100, // 100KB
+      sizeCalculation: () => 1,
+    })
+  }
+
+  /**
+   * Check video size via HEAD request with LRU caching.
+   * Returns Content-Length in bytes, or null if unknown.
+   */
+  private async getVideoSize(src: string): Promise<number | null> {
+    const cacheKey = `vsize:${src}`
+    const cached = this.sizeCache.get(cacheKey)
+    if (cached !== undefined) {
+      return cached.size === -1 ? null : cached.size
+    }
+
+    try {
+      const response = await fetch(src, { method: 'HEAD' })
+      const length = response.headers.get('Content-Length')
+      if (length !== null) {
+        const size = Number(length)
+        if (Number.isFinite(size) && size > 0) {
+          this.sizeCache.set(cacheKey, { size })
+          return size
+        }
+      }
+      // Use -1 as sentinel for 'unknown'
+      this.sizeCache.set(cacheKey, { size: -1 })
+      return null
+    } catch {
+      this.sizeCache.set(cacheKey, { size: -1 })
+      return null
+    }
+  }
+
+  /**
+   * After extracting blocks, check video sizes and fall back to direct URL
+   * if the video exceeds the proxy size limit.
+   */
+  private async applyVideoSizeLimit(blocks: import('./types').Block[]): Promise<void> {
+    const maxBytes = (this.config.proxyMaxSizeMb ?? 100) * 1024 * 1024
+    for (const block of blocks) {
+      if (block.type === 'video') {
+        const size = await this.getVideoSize(block.src)
+        if (size !== null && size > maxBytes) {
+          block.proxy = block.src
+        }
+      }
+    }
   }
 
   /**
@@ -104,6 +156,11 @@ export class TelegramClient {
 
     posts.reverse()
 
+    // Apply video size limits (large videos skip proxy)
+    for (const post of posts) {
+      await this.applyVideoSizeLimit(post.blocks)
+    }
+
     this.cache.set(key, posts)
     return structuredClone(posts)
   }
@@ -152,6 +209,9 @@ export class TelegramClient {
       tags,
       reactions,
     }
+
+    // Apply video size limits (large videos skip proxy)
+    await this.applyVideoSizeLimit(post.blocks)
 
     this.cache.set(key, post)
     return structuredClone(post)

@@ -6,6 +6,7 @@ dist/
 *.log
 .DS_Store
 .claude/
+.pi/
 .codegraph/
 pnpm-lock.yaml
 openspec/

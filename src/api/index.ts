@@ -6,6 +6,7 @@ import { postsRouter } from './routes/posts'
 import { mediaRouter } from './routes/media'
 import { tagsRouter } from './routes/tags'
 import { heatmapRouter } from './routes/heatmap'
+import { handleStaticProxy } from './proxy'
 
 const app = new Hono<{ Bindings: { CACHE: KVNamespace } }>()
 
@@ -39,6 +40,9 @@ app.route('/api/v1/ch', ch)
 app.get('/api/v1/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
+
+// ── 静态资源代理 ──
+app.get('/static/:path{.+}', handleStaticProxy)
 
 app.get('/', (c) => {
   return c.json({

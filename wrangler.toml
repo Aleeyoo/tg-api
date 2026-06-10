@@ -11,3 +11,5 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 TELEGRAM_HOST = "t.me"
 STATIC_PROXY = "/static/"
+REFERERS = ""
+PROXY_VIDEO_MAX_MB = "100"

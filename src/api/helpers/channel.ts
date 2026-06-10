@@ -41,8 +41,9 @@ export function getChannelConfig(
     config: {
       channel,
       telegramHost: env.TELEGRAM_HOST || 't.me',
-      staticProxy: env.STATIC_PROXY || '/static/',
+      staticProxy: inWhitelist ? (env.STATIC_PROXY || '/static/') : '',
       reactionsEnabled: Boolean(env.REACTIONS),
+      proxyMaxSizeMb: Number(env.PROXY_VIDEO_MAX_MB) || 100,
     },
     cacheStrategy: inWhitelist ? 'kv+lru' : 'lru_only',
   }

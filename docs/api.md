@@ -127,6 +127,11 @@
 
 每条帖子的 `blocks` 数组包含多个内容块，每个块由 `type` 字段区分。
 
+> **关于 `proxy` 字段**：
+> - 频道在 `CHANNELS` 白名单内 → `proxy` = `/static/` + 原始 CDN URL，通过 Worker 代理加载（支持国内访问）
+> - 频道不在白名单内 → `proxy` = 原始 CDN URL（和 `src` 相同），需直连加载
+> - 视频 > `PROXY_VIDEO_MAX_MB`（默认 100MB）→ `proxy` 回退到原始 URL，不经过代理
+
 ### `text` — 文本
 
 ```json
@@ -280,19 +285,68 @@
 ## 数据流
 
 ```
-请求 → STRICT_MODE + CHANNELS 校验 → 403
+请求
+  │
+  ▼
+STRICT_MODE + CHANNELS 校验 → 403
   │
   ▼ 通过
 KV 缓存? → 命中 → 返回
   │
   ▼ 未命中
-LRU 内存缓存? → 命中 → 写入 KV → 返回
+LRU 内存缓存? → 命中 → 返回
   │
   ▼ 都未命中
-fetch(t.me/s/{channel}) → cheerio 解析 → Block[] → 写入 LRU + KV → 返回 JSON
+fetch(t.me/s/{channel})
+  │
+  ▼
+cheerio 解析 → Block 提取 → Block[]
+  │
+  ▼
+白名单分流 (getChannelConfig)
+  ├─ 在白名单 → staticProxy = '/static/'
+  │              proxy = '/static/https://cdn5...'
+  └─ 非白名单 → staticProxy = ''
+                 proxy = src (原始 CDN URL)
+  │
+  ▼
+视频大小预检 (仅 whitelist 频道)
+  对每个 video block 发 HEAD 请求
+  Content-Length > 100MB → proxy 回退到 src
+  │
+  ▼
+写入 LRU + KV 缓存 → 返回 JSON
+
+── 前端媒体加载 ──
+
+  <img src={block.proxy}>
+  │
+  ▼
+  proxy 以 /static/ 开头? (白名单频道)
+  ├─ 是 → GET /static/https://cdn5...
+  │       │
+  │       ▼
+  │    Referer 校验 (REFERERS 白名单)
+  │       ├─ 未配置 REFERERS → 放行
+  │       ├─ REFERERS 匹配 → fetch(cdn5.telesco.pe)
+  │       │                  Cache-Control: s-maxage=86400
+  │       │                  返回图片/视频 bytes
+  │       └─ REFERERS 不匹配 → 403
+  │
+  └─ 否 → 直连 Telegram CDN (国内可能失败)
 ```
+
+### 缓存
 
 - **LRU**: Worker 内存缓存，5 分钟 TTL
 - **KV**: Cloudflare KV 缓存，跨实例共享，TTL 可配置
 
-每个响应带 `X-Tg-Cache` 头：`kv+lru`（KV 缓存命中）或 `lru_only`（仅 LRU 缓存）。
+每个 API 响应带 `X-Tg-Cache` 头：`kv+lru`（KV 缓存命中）或 `lru_only`（仅 LRU 缓存）。
+
+### 代理行为总结
+
+| 条件 | proxy 字段值 | 媒体加载方式 |
+|------|-------------|-------------|
+| 频道在白名单 & 视频 ≤100MB | `/static/https://...` | Worker 代理，国内可加载 |
+| 频道在白名单 & 视频 >100MB | `https://cdn5...` (同 src) | 直连 CDN，国内可能失败 |
+| 频道不在白名单 | `https://cdn5...` (同 src) | 直连 CDN，国内可能失败 |
