@@ -43,7 +43,9 @@ export async function handleStaticProxy(c: any): Promise<Response> {
   }
 
   // Extract target URL from path: /static/https://cdn5.telesco.pe/photo.jpg
-  const targetUrl = c.req.path.replace(/^\/static\//, '')
+  // Preserve query string (e.g. ?token=...) for CDN authentication
+  const reqUrl = new URL(c.req.url)
+  const targetUrl = reqUrl.pathname.replace(/^\/static\//, '') + reqUrl.search
   if (!targetUrl || !targetUrl.startsWith('http')) {
     return c.json({ error: 'Bad Request: invalid target URL' }, 400)
   }
@@ -66,32 +68,34 @@ export async function handleStaticProxy(c: any): Promise<Response> {
     }
 
     // Build response with headers to forward
-    const responseHeaders = new Headers()
+    // NOTE: Use Record<string, string> (not Headers) because c.newResponse()
+    // expects a plain object as the third argument.
+    const responseHeaders: Record<string, string> = {}
 
     // CORS headers
-    responseHeaders.set('Access-Control-Allow-Origin', '*')
-    responseHeaders.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
-    responseHeaders.set('Access-Control-Allow-Headers', 'Content-Type')
+    responseHeaders['Access-Control-Allow-Origin'] = '*'
+    responseHeaders['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+    responseHeaders['Access-Control-Allow-Headers'] = 'Content-Type'
 
     // Cache: Telegram CDN media is immutable
-    responseHeaders.set('Cache-Control', 'public, s-maxage=86400, immutable')
+    responseHeaders['Cache-Control'] = 'public, s-maxage=86400, immutable'
 
     // Forward content type
     const contentType = upstream.headers.get('Content-Type')
     if (contentType) {
-      responseHeaders.set('Content-Type', contentType)
+      responseHeaders['Content-Type'] = contentType
     }
 
     // Forward content length (for Range responses)
     const contentLength = upstream.headers.get('Content-Length')
     if (contentLength) {
-      responseHeaders.set('Content-Length', contentLength)
+      responseHeaders['Content-Length'] = contentLength
     }
 
     // Forward content range (for 206 responses)
     const contentRange = upstream.headers.get('Content-Range')
     if (contentRange) {
-      responseHeaders.set('Content-Range', contentRange)
+      responseHeaders['Content-Range'] = contentRange
     }
 
     return c.newResponse(upstream.body, upstream.status as any, responseHeaders)
