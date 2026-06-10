@@ -1,12 +1,3 @@
-import type { Context, Env } from 'hono'
-
-interface ProxyEnv extends Env {
-  Bindings: {
-    CACHE: KVNamespace
-    REFERERS?: string
-  }
-}
-
 /**
  * Parse the domain from a Referer or Origin header.
  * Returns null if the header is missing or malformed.
@@ -43,24 +34,18 @@ function isRefererAllowed(request: Request, referersEnv: string | undefined): bo
  * Proxy handler for GET /static/* requests.
  * Fetches media from Telegram CDN and returns it with proper headers.
  */
-export async function handleStaticProxy(c: Context<ProxyEnv>): Promise<Response> {
-  const referers = c.env?.REFERERS
+export async function handleStaticProxy(c: any): Promise<Response> {
+  const referers = (c.env as any)?.REFERERS as string | undefined
 
   // Referer validation
   if (!isRefererAllowed(c.req.raw, referers)) {
-    return new Response(JSON.stringify({ error: 'Forbidden' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return c.json({ error: 'Forbidden' }, 403)
   }
 
   // Extract target URL from path: /static/https://cdn5.telesco.pe/photo.jpg
   const targetUrl = c.req.path.replace(/^\/static\//, '')
   if (!targetUrl || !targetUrl.startsWith('http')) {
-    return new Response(JSON.stringify({ error: 'Bad Request: invalid target URL' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return c.json({ error: 'Bad Request: invalid target URL' }, 400)
   }
 
   // Build upstream fetch headers — pass through Range for video seeking
@@ -77,10 +62,7 @@ export async function handleStaticProxy(c: Context<ProxyEnv>): Promise<Response>
     })
 
     if (!upstream.ok && upstream.status !== 206) {
-      return new Response(JSON.stringify({ error: 'Upstream fetch failed' }), {
-        status: upstream.status,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return c.json({ error: 'Upstream fetch failed' }, upstream.status as any)
     }
 
     // Build response with headers to forward
@@ -112,14 +94,8 @@ export async function handleStaticProxy(c: Context<ProxyEnv>): Promise<Response>
       responseHeaders.set('Content-Range', contentRange)
     }
 
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: responseHeaders,
-    })
+    return c.newResponse(upstream.body, upstream.status as any, responseHeaders)
   } catch {
-    return new Response(JSON.stringify({ error: 'Proxy error' }), {
-      status: 502,
-      headers: { 'Content-Type': 'application/json' },
-    })
+    return c.json({ error: 'Proxy error' }, 502)
   }
 }
